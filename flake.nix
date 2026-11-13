@@ -44,7 +44,20 @@
       pkgs = nixpkgsFor.${system};
     in {
       default = pkgs.mkShell {
-        packages = with pkgs; [zig zls];
+        nativeBuildInputs = with pkgs; [
+          zig
+          zls
+          pkg-config
+        ];
+
+        buildInputs = with pkgs; [
+          libX11
+        ];
+
+        X11_INCLUDE_PATHS = pkgs.lib.makeSearchPath "include" [
+          (pkgs.lib.getDev pkgs.xorg.libX11)
+          (pkgs.lib.getDev pkgs.xorg.xorgproto)
+        ];
       };
     });
   };
