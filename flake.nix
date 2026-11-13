@@ -22,8 +22,6 @@
     supportedSystems = [
       "x86_64-linux"
       "aarch64-linux"
-      "x86_64-darwin"
-      "aarch64-darwin"
     ];
 
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -39,26 +37,72 @@
           })
         ];
       });
-  in {
-    devShells = forAllSystems (system: let
-      pkgs = nixpkgsFor.${system};
-    in {
-      default = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [
-          zig
-          zls
-          pkg-config
-        ];
 
-        buildInputs = with pkgs; [
-          libX11
+    perSystem = forAllSystems (system: let
+      pkgs = nixpkgsFor.${system};
+
+      runtimeDeps = with pkgs; [
+        bash
+        coreutils
+        gawk
+        procps
+        wireplumber
+      ];
+
+      package = pkgs.stdenv.mkDerivation {
+        pname = "zstatus";
+        version = "0.0.0";
+        src = ./.;
+
+        nativeBuildInputs = [
+          pkgs.makeWrapper
+          pkgs.pkg-config
+          pkgs.zig
         ];
+        buildInputs = [pkgs.libX11 pkgs.stdenv.cc.libc];
 
         X11_INCLUDE_PATHS = pkgs.lib.makeSearchPath "include" [
-          (pkgs.lib.getDev pkgs.xorg.libX11)
-          (pkgs.lib.getDev pkgs.xorg.xorgproto)
+          (pkgs.lib.getDev pkgs.libX11)
+          (pkgs.lib.getDev pkgs.xorgproto)
         ];
+
+        dontConfigure = true;
+        dontPatchELF = true;
+
+        buildPhase = ''
+          runHook preBuild
+          export ZIG_GLOBAL_CACHE_DIR="$TMPDIR/zig-cache"
+          zig build --system "$PWD/zig-pkg" \
+            -Dtarget=${pkgs.stdenv.hostPlatform.parsed.cpu.name}-linux-gnu \
+            -Ddynamic-linker=${pkgs.stdenv.cc.bintools.dynamicLinker} \
+            -Druntime-library-paths=${pkgs.lib.makeLibraryPath [pkgs.libX11 pkgs.stdenv.cc.libc]} \
+            -Doptimize=ReleaseFast --prefix "$out"
+          runHook postBuild
+        '';
+
+        dontInstall = true;
+
+        meta = {
+          mainProgram = "zstatus";
+          platforms = pkgs.lib.platforms.linux;
+        };
+
+        postFixup = ''
+          wrapProgram "$out/bin/zstatus" \
+            --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
+        '';
+      };
+    in {
+      packages.default = package;
+
+      devShells.default = pkgs.mkShell {
+        inputsFrom = [package];
+        packages = [pkgs.zls] ++ runtimeDeps;
+        inherit (package) X11_INCLUDE_PATHS;
       };
     });
+  in {
+    packages = forAllSystems (system: perSystem.${system}.packages);
+    devShells = forAllSystems (system: perSystem.${system}.devShells);
   };
 }

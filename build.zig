@@ -35,6 +35,12 @@ pub fn build(b: *std.Build) void {
     options.addOption([]const u8, "name", exe.name);
     exe.root_module.addOptions("build_options", options);
     exe.root_module.linkSystemLibrary("X11", .{});
+    if (b.option([]const u8, "runtime-library-paths", "RT lib paths")) |paths| {
+        var it = std.mem.tokenizeScalar(u8, paths, ':');
+        while (it.next()) |path| {
+            exe.root_module.addRPath(.{ .cwd_relative = path });
+        }
+    }
     exe.root_module.addImport("x11", t.mod);
 
     b.installArtifact(exe);
