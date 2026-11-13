@@ -7,12 +7,12 @@ const Config = @import("config.zig");
 
 pub fn main(init: std.process.Init) !void {
     const ctx: Context = .{
-        .allocator = init.arena.allocator(),
+        .allocator = init.gpa,
         .io = init.io,
     };
     const stdout = std.Io.File.stdout();
 
-    const args = try init.minimal.args.toSlice(ctx.allocator);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
     var once = false;
     var to_stdout = false;
     for (args[0..]) |arg| {
@@ -29,6 +29,9 @@ pub fn main(init: std.process.Init) !void {
     var dpy: *x11.Display = undefined;
     if (!to_stdout) {
         dpy = x11.XOpenDisplay(null) orelse return error.CannotOpenDisplay;
+    }
+    defer {
+        if (!to_stdout) _ = x11.XCloseDisplay(dpy);
     }
 
     var status: [Config.BUF_SIZE]u8 = undefined;
