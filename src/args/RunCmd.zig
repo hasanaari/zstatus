@@ -2,14 +2,10 @@ const std = @import("std");
 
 const Context = @import("../context.zig");
 
-const Self = @This();
-
 pub fn RunCmd(comptime argv: []const []const u8) struct {
     output: ?[]u8 = null,
 
-    pub const template = "{s}";
-
-    pub fn args(self: *@This(), ctx: Context) !struct { []const u8 } {
+    pub fn get(self: *@This(), ctx: Context) !struct { []const u8 } {
         const result = try std.process.run(ctx.allocator, ctx.io, .{
             .argv = argv,
         });

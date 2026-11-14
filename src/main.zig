@@ -44,7 +44,7 @@ pub fn main(init: std.process.Init) !void {
     } = Config.COMPONENTS;
     defer {
         inline for (&components) |*component| {
-            component.deinit(ctx);
+            component.args.deinit(ctx);
         }
     }
 
@@ -54,8 +54,8 @@ pub fn main(init: std.process.Init) !void {
         inline for (&components) |*component| {
             const text = try std.fmt.bufPrintSentinel(
                 status[len..],
-                @TypeOf(component.*).template,
-                try component.args(ctx),
+                @TypeOf(component.*).fmt,
+                try component.args.get(ctx),
                 0,
             );
             len += text.len;
